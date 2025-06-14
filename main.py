@@ -20,20 +20,20 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
     input_path = f"{user_id}_input.mp4"
     await file.download_to_drive(custom_path=input_path)
     user_video_files[user_id] = input_path
-    await update.message.reply_text("✅ បានទទួលវីដេអូ! ប្រើ /split <នាទី> ដើម្បីកាត់")
+    await update.message.reply_text("✅ បានទ៊ិរវិដាអូ! បុរ /split <នាទិង់> ដ្ពែព៉ុកាត")
 
 # Handle /split command
 async def split_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     if user_id not in user_video_files:
-        await update.message.reply_text("⚠️ សូមផ្ញើវីដេអូមុនសិន")
+        await update.message.reply_text("⚠️ សូមព្ទេវិដាអូមូនសិន")
         return
 
     try:
         minutes = int(context.args[0])
         segment_time = f"00:{minutes:02d}:00"
     except:
-        await update.message.reply_text("❌ សូមប្រើ /split <នាទី> (ឧ. /split 5)")
+        await update.message.reply_text("❌ សូមបុរ /split <នាទិង់> (ឧ. /split 5)")
         return
 
     input_path = user_video_files[user_id]
@@ -44,7 +44,7 @@ async def split_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "-reset_timestamps", "1", output_pattern
     ]
 
-    await update.message.reply_text("🔪 កំពុងកាត់វីដេអូ...")
+    await update.message.reply_text("🔪 កានពុកតាវិដាអូ...")
 
     try:
         subprocess.run(command, check=True)
@@ -54,7 +54,7 @@ async def split_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         for seg in segments:
             os.remove(seg)
     except Exception as e:
-        await update.message.reply_text(f"❌ មានបញ្ហា: {e}")
+        await update.message.reply_text(f"❌ មានបាញមា: {e}")
     finally:
         if os.path.exists(input_path):
             os.remove(input_path)
