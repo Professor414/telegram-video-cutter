@@ -1,111 +1,75 @@
 import os
+import asyncio
+from pyrogram import Client, filters
+from pyrogram.types import Message
 import subprocess
 import glob
-import logging
 
-from telegram import Update
-from telegram.ext import (
-    ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
-)
-
-# Enable logging
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    level=logging.INFO
-)
-
-# Load BOT_TOKEN from environment
+API_ID = int(os.getenv("API_ID"))
+API_HASH = os.getenv("API_HASH")
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-if not BOT_TOKEN:
-    raise ValueError("❌ BOT_TOKEN not found in environment variables!")
 
-# Store user's uploaded video path
-user_video_files = {}
+app = Client("splitter_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 
-# /start command
-async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "🤖 សួស្តី! ខ្ញុំអាចជួយអ្នក:\n\n"
-        "🎞️ កាត់វីដេអូ: ផ្ញើវីដេអូហើយវាយ /split <នាទី>\n"
-        "\nសូមចាប់ផ្តើមដោយផ្ញើវីដេអូឬវាយបញ្ជា។"
+user_videos = {}
+
+@app.on_message(filters.command("start"))
+async def start(_, message: Message):
+    await message.reply(
+        "🤖 សួស្តី! ខ្ញុំអាចជួយអ្នកបែងចែកវីដេអូ 📽️\n\n"
+        "▶️ សូមផ្ញើវីដេអូមក Bot\n"
+        "▶️ បន្ទាប់មកប្រើ /split <នាទី>\n"
+        "ឧ. `/split 5` ដើម្បីបែងចែករៀងរាល់ 5 នាទី។"
     )
 
-# Receive video
-async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.message.from_user.id
-    file = await update.message.video.get_file()
-    input_path = f"{user_id}_input.mp4"
+@app.on_message(filters.video & filters.private)
+async def save_video(_, message: Message):
+    user_id = message.from_user.id
+    file = await message.download()
+    user_videos[user_id] = file
+    await message.reply("✅ បានទទួលវីដេអូ! ប្រើ /split <នាទី>")
 
-    await file.download_to_drive(custom_path=input_path)
-    user_video_files[user_id] = input_path
+@app.on_message(filters.command("split"))
+async def split_video(_, message: Message):
+    user_id = message.from_user.id
+    args = message.command
 
-    await update.message.reply_text("✅ បានទទួលវីដេអូ! ប្រើ /split <នាទី> ដើម្បីកាត់។")
-
-# /split command
-async def split_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.message.from_user.id
-
-    if user_id not in user_video_files:
-        await update.message.reply_text("⚠️ សូមផ្ញើវីដេអូមុនសិន")
+    if user_id not in user_videos:
+        await message.reply("⚠️ សូមផ្ញើវីដេអូមុនសិន។")
         return
 
-    try:
-        minutes = int(context.args[0])
-        segment_time = f"00:{minutes:02d}:00"
-    except:
-        await update.message.reply_text("❌ សូមប្រើ /split <នាទី> (ឧ. /split 5)")
+    if len(args) != 2 or not args[1].isdigit():
+        await message.reply("❌ ប្រើ /split <នាទី> ឧ. /split 5")
         return
 
-    input_path = user_video_files[user_id]
-    output_pattern = f"{user_id}_segment_%03d.mp4"
-    command = [
+    minutes = int(args[1])
+    seconds = minutes * 60
+    input_path = user_videos[user_id]
+    output_pattern = f"{user_id}_part_%03d.mp4"
+
+    await message.reply("🔪 กំពុងបែងចែកវីដេអូ...")
+
+    cmd = [
         "ffmpeg", "-i", input_path, "-c", "copy", "-map", "0",
-        "-segment_time", segment_time, "-f", "segment",
+        "-f", "segment", "-segment_time", str(seconds),
         "-reset_timestamps", "1", output_pattern
     ]
 
-    await update.message.reply_text("🔪 កំពុងកាត់វីដេអូ...")
-
     try:
-        subprocess.run(command, check=True)
-        segments = sorted(glob.glob(f"{user_id}_segment_*.mp4"))
+        subprocess.run(cmd, check=True)
+        segments = sorted(glob.glob(f"{user_id}_part_*.mp4"))
 
-        for seg in segments:
-            with open(seg, "rb") as video:
-                await update.message.reply_video(video=video)
-
-        await update.message.reply_text("✅ ការកាត់វីដេអូបានជោគជ័យ!")
+        for part in segments:
+            await message.reply_video(part)
+            os.remove(part)
 
     except Exception as e:
-        logging.error(f"Error splitting video: {e}")
-        await update.message.reply_text(f"❌ មានបញ្ហា: {e}")
+        await message.reply(f"❌ បរាជ័យក្នុងការកាត់៖ {e}")
+
     finally:
-        # Cleanup
-        if os.path.exists(input_path):
-            os.remove(input_path)
-        for seg in glob.glob(f"{user_id}_segment_*.mp4"):
-            os.remove(seg)
-        user_video_files.pop(user_id, None)
+        os.remove(input_path)
+        user_videos.pop(user_id, None)
 
-# Error handler
-async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
-    logging.error("Unhandled exception:", exc_info=context.error)
-    if isinstance(update, Update) and update.message:
-        await update.message.reply_text("❌ បញ្ហាក្នុងប្រតិបត្តិការណ៍។ សូមសាកល្បងម្ដងទៀត។")
-
-# --- Start bot ---
-if __name__ == '__main__':
-    app = ApplicationBuilder().token(BOT_TOKEN).build()
-
-    # Register commands
-    app.add_handler(CommandHandler("start", start_command))
-    app.add_handler(CommandHandler("split", split_command))
-
-    # Accept videos in group & private
-    app.add_handler(MessageHandler(filters.VIDEO & filters.ChatType.GROUPS, handle_video))
-    app.add_handler(MessageHandler(filters.VIDEO & filters.ChatType.PRIVATE, handle_video))
-
-    app.add_error_handler(error_handler)
-
-    print("✅ Bot is running...")
-    app.run_polling()
+if __name__ == "__main__":
+    print("✅ Split Video Bot is running...")
+    app.run()
