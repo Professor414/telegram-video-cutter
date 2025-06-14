@@ -1,12 +1,27 @@
 from telegram import Update
-from telegram.ext import CommandHandler, ContextTypes
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 from weasyprint import HTML
 import os
 import tempfile
+import logging
+from dotenv import load_dotenv
 
-def get_handler():
-    return CommandHandler("texttopdf", text_to_pdf)
+# Load .env variables
+load_dotenv()
 
+# Enable logging
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
+
+# Error handler
+async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+    logging.error("Exception while handling update:", exc_info=context.error)
+    if isinstance(update, Update) and update.message:
+        await update.message.reply_text("❌ មានបញ្ហាក្នុងប្រតិបត្តិការណ៍។ សូមសាកល្បងម្ដងទៀត។")
+
+# Main PDF generation handler
 async def text_to_pdf(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
         await update.message.reply_text("⚠️ សូមវាយ: /texttopdf អត្ថបទដែលអ្នកចង់បម្លែង")
@@ -44,7 +59,20 @@ async def text_to_pdf(update: Update, context: ContextTypes.DEFAULT_TYPE):
             with open(tmp_path, "rb") as f:
                 await update.message.reply_document(document=f, filename="text.pdf")
         except Exception as e:
+            logging.error("PDF generation failed", exc_info=True)
             await update.message.reply_text(f"❌ មានបញ្ហាក្នុងការបង្កើត PDF: {e}")
         finally:
             if os.path.exists(tmp_path):
                 os.remove(tmp_path)
+
+# Run bot (if this script is executed directly)
+if __name__ == "__main__":
+    TOKEN = os.getenv("BOT_TOKEN")
+    if not TOKEN:
+        print("❌ BOT_TOKEN not found in environment variables.")
+        exit(1)
+
+    app = ApplicationBuilder().token(TOKEN).build()
+    app.add_handler(CommandHandler("texttopdf", text_to_pdf))
+    app.add_error_handler(error_handler)
+    app.run_polling()
