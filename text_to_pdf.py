@@ -21,7 +21,7 @@ async def text_to_pdf(update: Update, context: ContextTypes.DEFAULT_TYPE):
         <style>
             @font-face {{
                 font-family: 'Noto Sans Khmer';
-                src: local('NotoSansKhmer-Regular'), url('file:///app/NotoSansKhmer-Regular.ttf');
+                src: url('file:///app/NotoSansKhmer-Regular.ttf');
             }}
             body {{
                 font-family: 'Noto Sans Khmer', sans-serif;
@@ -37,7 +37,6 @@ async def text_to_pdf(update: Update, context: ContextTypes.DEFAULT_TYPE):
     </html>
     """
 
-    # ឯកសារបណ្តោះអាសន្ន
     with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
         tmp_path = tmp.name
         try:
