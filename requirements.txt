@@ -1,1 +1,4 @@
 python-telegram-bot==20.3
+git add requirements.txt
+git commit -m "Add fpdf requirement"
+git push
