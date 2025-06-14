@@ -3,39 +3,39 @@ from fpdf import FPDF
 from telegram import Update
 from telegram.ext import CommandHandler, ContextTypes
 
-# Path to the Khmer font
-FONT_PATH = os.path.join(os.path.dirname(__file__), "KhmerOS.ttf")
+# Constants
+FONT_PATH = "NotoSansKhmer-Regular.ttf"  # make sure this file is in your project root
+FONT_NAME = "KhmerOS"
 
 def get_handler():
-    return CommandHandler("texttopdf", text_to_pdf)
+    return CommandHandler("texttopdf", generate_pdf)
 
-async def text_to_pdf(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.message.from_user.id
-    text = " ".join(context.args)
-
-    if not text:
-        await update.message.reply_text("⚠️ សូមបញ្ចូលអត្ថបទបន្ថែមក្រោយ /texttopdf")
+async def generate_pdf(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Get the user input text
+    user_text = " ".join(context.args)
+    if not user_text:
+        await update.message.reply_text("⚠️ សូមបញ្ចូលអត្ថបទបន្ទាប់នឹង /texttopdf")
         return
 
+    # Check if font file exists
     if not os.path.exists(FONT_PATH):
-        await update.message.reply_text("❌ មិនមាន KhmerOS.ttf សម្រាប់អក្សរខ្មែរ")
+        await update.message.reply_text(f"❌ មិនមាន {FONT_PATH} សម្រាប់អក្សរខ្មែរ។")
         return
 
-    try:
-        pdf = FPDF()
-        pdf.add_page()
+    # Generate PDF
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.add_font(FONT_NAME, '', FONT_PATH, uni=True)
+    pdf.set_font(FONT_NAME, size=19)
+    pdf.multi_cell(0, 10, txt=user_text)
 
-        # Register and use Khmer font
-        pdf.add_font("Khmer", "", "NotoSansKhmer-Regular.ttf", uni=True)
-        pdf.set_font("Khmer", size=19)
+    # Save with unique filename
+    user_id = update.message.from_user.id
+    filename = f"{user_id}_output.pdf"
+    pdf.output(filename)
 
-        pdf.multi_cell(0, 10, text)
+    # Send back the PDF
+    await update.message.reply_document(document=open(filename, "rb"))
 
-        output_path = f"{user_id}_output.pdf"
-        pdf.output(output_path)
-
-        await update.message.reply_document(document=open(output_path, "rb"))
-        os.remove(output_path)
-
-    except Exception as e:
-        await update.message.reply_text(f"❌ បញ្ហា: {e}")
+    # Cleanup
+    os.remove(filename)
