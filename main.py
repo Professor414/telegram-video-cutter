@@ -23,7 +23,7 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def split_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     if user_id not in user_video_files:
-        await update.message.reply_text("⚠️ សូមផ្ញើវីដេអូជាមុនសិន។")
+        await update.message.reply_text("⚠️ សូមផ្ញើវីដេអូជាមុនសិនៗ")
         return
 
     try:
@@ -59,7 +59,8 @@ async def split_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 if __name__ == '__main__':
     app = ApplicationBuilder().token(BOT_TOKEN).build()
-    app.add_handler(MessageHandler(filters.VIDEO, handle_video))
+    app.add_handler(MessageHandler(filters.ChatType.GROUPS & filters.VIDEO, handle_video))
+    app.add_handler(MessageHandler(filters.ChatType.PRIVATE & filters.VIDEO, handle_video))
     app.add_handler(CommandHandler("split", split_command))
     print("🤖 Bot is running securely...")
     app.run_polling()
