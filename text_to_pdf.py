@@ -2,7 +2,7 @@ import os
 from telegram import Update
 from telegram.ext import CommandHandler, ContextTypes
 
-# Import  компоненты Platypus ที่จำเป็น
+# Import គ្រឿងផ្សំសំខាន់ៗពី Platypus
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.pdfbase import pdfmetrics
@@ -22,12 +22,12 @@ FONT_PATH = os.path.join(SCRIPT_DIR, FONT_FILENAME)
 
 
 def get_handler():
-    """ trả về trình xử lý lệnh cho bot Telegram """
+    """ ត្រឡប់ handler សម្រាប់បញ្ជា Telegram bot """
     return CommandHandler("texttopdf", text_to_pdf)
 
 
 async def text_to_pdf(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """ สร้างไฟล์ PDF จากข้อความที่ผู้ใช้ส่งมา """
+    """ បង្កើតឯកសារ PDF ពីអត្ថបទដែលអ្នកប្រើប្រាស់បានផ្ញើ """
     if not context.args:
         await update.message.reply_text("⚠️ សូមប្រើ: `/texttopdf អត្ថបទដែលអ្នកចង់សរសេរ…`")
         return
@@ -45,20 +45,20 @@ async def text_to_pdf(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # 1. ចុះឈ្មោះពុម្ពអក្សរខ្មែរ
     pdfmetrics.registerFont(TTFont(FONT_NAME, FONT_PATH))
 
-    # 2. បង្កើតเอกสาร PDF
+    # 2. បង្កើតឯកសារ PDF
     doc = SimpleDocTemplate(output_file, pagesize=A4,
                             rightMargin=inch, leftMargin=inch,
                             topMargin=inch, bottomMargin=inch)
 
-    # 3. បង្កើត Style សម្រាប់អត្ថបទខ្មែរ
+    # 3. បង្កើត Style សម្រាប់អត្ថបទខ្មែរ (នេះជាចំណុចសំខាន់)
     khmer_style = ParagraphStyle(
         'KhmerStyle',
-        fontName=FONT_NAME,
-        fontSize=14,
-        leading=24,  # កម្ពស់រវាងបន្ទាត់ (Line spacing)
+        fontName=FONT_NAME,    # ប្រើអក្សរមូល
+        fontSize=14,           # ទំហំអក្សរ
+        leading=24,            # គម្លាតរវាងបន្ទាត់
     )
 
-    # 4. បំប្លែង \n (បន្ទាត់ថ្មី) ទៅជា <br/> ដែល Paragraph អាចយល់ได้
+    # 4. បំប្លែង \n (បន្ទាត់ថ្មី) ទៅជា <br/> ដែល Paragraph អាចយល់បាន
     formatted_text = user_text.replace('\n', '<br/>')
 
     # 5. បង្កើត Paragraph object ហើយដាក់ក្នុង story
@@ -66,7 +66,7 @@ async def text_to_pdf(update: Update, context: ContextTypes.DEFAULT_TYPE):
     p = Paragraph(formatted_text, khmer_style)
     story.append(p)
 
-    # 6. สร้างไฟล์ PDF
+    # 6. បង្កើតឯកសារ PDF
     try:
         doc.build(story)
     except Exception as e:
@@ -74,11 +74,11 @@ async def text_to_pdf(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"❌ មានបញ្ហាក្នុងការបង្កើត PDF: {e}")
         return
 
-    # 7. ส่งไฟล์ PDF ទៅให้ผู้ใช้
+    # 7. ផ្ញើឯកសារ PDF ទៅឲ្យអ្នកប្រើប្រាស់
     try:
         with open(output_file, "rb") as f:
             await update.message.reply_document(document=f, filename="អត្ថបទ.pdf")
     finally:
-        # 8. ลบไฟล์ชั่วคราวหลังส่งเสร็จ
+        # 8. លុបไฟล์បណ្ដោះអាសន្នចោលក្រោយពេលផ្ញើរួច
         if os.path.exists(output_file):
             os.remove(output_file)
