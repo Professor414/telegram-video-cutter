@@ -26,8 +26,8 @@ async def text_to_pdf(update: Update, context: ContextTypes.DEFAULT_TYPE):
         pdf.add_page()
 
         # Register and use Khmer font
-        pdf.add_font("KhmerOS", '', FONT_PATH, uni=True)
-        pdf.set_font("KhmerOS", size=16)
+        pdf.add_font("Khmer", "", "NotoSansKhmer-Regular.ttf", uni=True)
+        pdf.set_font("Khmer", size=19)
 
         pdf.multi_cell(0, 10, text)
 
