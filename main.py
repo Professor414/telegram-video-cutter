@@ -1,32 +1,50 @@
 import os
 import subprocess
 import glob
+import logging
+
 from telegram import Update
 from telegram.ext import (
     ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
 )
-from text_to_pdf import get_handler  # Import handler for /texttopdf
 
-# Get the bot token from environment variables
-BOT_TOKEN = os.environ.get("BOT_TOKEN")
+# Enable logging
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    level=logging.INFO
+)
+
+# Load BOT_TOKEN from environment
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 if not BOT_TOKEN:
     raise ValueError("❌ BOT_TOKEN not found in environment variables!")
 
-# Store video paths temporarily
+# Store user's uploaded video path
 user_video_files = {}
 
-# Handle video upload
+# /start command
+async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "🤖 សួស្តី! ខ្ញុំអាចជួយអ្នក:\n\n"
+        "🎞️ កាត់វីដេអូ: ផ្ញើវីដេអូហើយវាយ /split <នាទី>\n"
+        "\nសូមចាប់ផ្តើមដោយផ្ញើវីដេអូឬវាយបញ្ជា។"
+    )
+
+# Receive video
 async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     file = await update.message.video.get_file()
     input_path = f"{user_id}_input.mp4"
+
     await file.download_to_drive(custom_path=input_path)
     user_video_files[user_id] = input_path
-    await update.message.reply_text("✅ បានទទួលវីដេអូ! ប្រើ /split <នាទី> ដើម្បីកាត់")
 
-# Handle /split command
+    await update.message.reply_text("✅ បានទទួលវីដេអូ! ប្រើ /split <នាទី> ដើម្បីកាត់។")
+
+# /split command
 async def split_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
+
     if user_id not in user_video_files:
         await update.message.reply_text("⚠️ សូមផ្ញើវីដេអូមុនសិន")
         return
@@ -50,36 +68,44 @@ async def split_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     try:
         subprocess.run(command, check=True)
-        segments = glob.glob(f"{user_id}_segment_*.mp4")
+        segments = sorted(glob.glob(f"{user_id}_segment_*.mp4"))
+
         for seg in segments:
-            await update.message.reply_video(video=open(seg, 'rb'))
-        for seg in segments:
-            os.remove(seg)
+            with open(seg, "rb") as video:
+                await update.message.reply_video(video=video)
+
+        await update.message.reply_text("✅ ការកាត់វីដេអូបានជោគជ័យ!")
+
     except Exception as e:
+        logging.error(f"Error splitting video: {e}")
         await update.message.reply_text(f"❌ មានបញ្ហា: {e}")
     finally:
+        # Cleanup
         if os.path.exists(input_path):
             os.remove(input_path)
+        for seg in glob.glob(f"{user_id}_segment_*.mp4"):
+            os.remove(seg)
         user_video_files.pop(user_id, None)
 
-# Handle /start command to explain features
-async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "🤖 សួស្តី! ខ្ញុំអាចជួយអ្នក:\n\n"
-        "🎞️ កាត់វីដេអូ: ផ្ញើវីដេអូហើយប្រើ /split <នាទី>\n"
-        "📄 បម្លែងអត្ថបទទៅ PDF: /texttopdf [អត្ថបទ]\n"
-        "\nសូមចាប់ផ្តើមដោយផ្ញើវីដេអូឬវាយបញ្ជា។"
-    )
+# Error handler
+async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
+    logging.error("Unhandled exception:", exc_info=context.error)
+    if isinstance(update, Update) and update.message:
+        await update.message.reply_text("❌ បញ្ហាក្នុងប្រតិបត្តិការណ៍។ សូមសាកល្បងម្ដងទៀត។")
 
-# Start the bot
+# --- Start bot ---
 if __name__ == '__main__':
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
+    # Register commands
     app.add_handler(CommandHandler("start", start_command))
-    app.add_handler(MessageHandler(filters.ChatType.GROUPS & filters.VIDEO, handle_video))
-    app.add_handler(MessageHandler(filters.ChatType.PRIVATE & filters.VIDEO, handle_video))
     app.add_handler(CommandHandler("split", split_command))
-    app.add_handler(get_handler())  # Add /texttopdf handler from text_to_pdf.py
 
-    print("🤖 Bot is running securely...")
+    # Accept videos in group & private
+    app.add_handler(MessageHandler(filters.VIDEO & filters.ChatType.GROUPS, handle_video))
+    app.add_handler(MessageHandler(filters.VIDEO & filters.ChatType.PRIVATE, handle_video))
+
+    app.add_error_handler(error_handler)
+
+    print("✅ Bot is running...")
     app.run_polling()
