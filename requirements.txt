@@ -1,7 +1,2 @@
-python-telegram-bot==20.3
-fpdf==1.7.2
-reportlab==4.0.4
-weasyprint==60.1
-cffi>=1.15.1
 pyrogram==2.0.106
 tgcrypto
