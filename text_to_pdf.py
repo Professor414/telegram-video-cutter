@@ -12,8 +12,8 @@ from reportlab.lib.units import inch
 
 # --- ការកំណត់ពុម្ពអក្សរ (Font Configuration) ---
 # សូមប្រាកដថាអ្នកបានទាញយក និងដាក់ไฟล์ font នេះក្នុងថតតែមួយជាមួយកូដ
-FONT_FILENAME = "KhmerOS_muol.ttf" 
-FONT_NAME = "KhmerOSMuol" # ឈ្មោះសម្រាប់ប្រើក្នុងកូដ
+FONT_FILENAME = "KhmerOS.ttf" 
+FONT_NAME = "KhmerOS" # ឈ្មោះសម្រាប់ប្រើក្នុងកូដ
 
 # ស្វែងរកទីតាំងពិតប្រាកដរបស់ไฟล์កូដ
 # This makes sure the bot can find the font file
