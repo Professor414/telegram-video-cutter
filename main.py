@@ -1,75 +1,76 @@
 import os
-import asyncio
 from pyrogram import Client, filters
 from pyrogram.types import Message
-import subprocess
-import glob
+from moviepy.editor import VideoFileClip
+import math
+import shutil
 
+# Load API credentials
 API_ID = int(os.getenv("API_ID"))
 API_HASH = os.getenv("API_HASH")
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
-app = Client("splitter_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
+app = Client(
+    "split_bot",
+    api_id=API_ID,
+    api_hash=API_HASH,
+    bot_token=BOT_TOKEN
+)
 
-user_videos = {}
-
-@app.on_message(filters.command("start"))
-async def start(_, message: Message):
-    await message.reply(
-        "🤖 សួស្តី! ខ្ញុំអាចជួយអ្នកបែងចែកវីដេអូ 📽️\n\n"
-        "▶️ សូមផ្ញើវីដេអូមក Bot\n"
-        "▶️ បន្ទាប់មកប្រើ /split <នាទី>\n"
-        "ឧ. `/split 5` ដើម្បីបែងចែករៀងរាល់ 5 នាទី។"
-    )
+MAX_FILE_SIZE = 2000 * 1024 * 1024  # 2GB
 
 @app.on_message(filters.video & filters.private)
-async def save_video(_, message: Message):
-    user_id = message.from_user.id
+async def split_and_send(client: Client, message: Message):
+    await message.reply_text("📥 กำลังទាញយកវីដេអូ...")
+    video = message.video
     file = await message.download()
-    user_videos[user_id] = file
-    await message.reply("✅ បានទទួលវីដេអូ! ប្រើ /split <នាទី>")
+    size = os.path.getsize(file)
 
-@app.on_message(filters.command("split"))
-async def split_video(_, message: Message):
-    user_id = message.from_user.id
-    args = message.command
-
-    if user_id not in user_videos:
-        await message.reply("⚠️ សូមផ្ញើវីដេអូមុនសិន។")
+    if size <= MAX_FILE_SIZE:
+        await message.reply_video(video=file, caption="✅ មិនចាំបាច់បំបែក")
+        os.remove(file)
         return
 
-    if len(args) != 2 or not args[1].isdigit():
-        await message.reply("❌ ប្រើ /split <នាទី> ឧ. /split 5")
-        return
+    # ចាប់ផ្តើមបំបែក
+    await message.reply_text("✂️ កំពុងបំបែកវីដេអូ...")
 
-    minutes = int(args[1])
-    seconds = minutes * 60
-    input_path = user_videos[user_id]
-    output_pattern = f"{user_id}_part_%03d.mp4"
+    clip = VideoFileClip(file)
+    duration = clip.duration
+    avg_bitrate = size / duration  # bytes/sec
 
-    await message.reply("🔪 กំពុងបែងចែកវីដេអូ...")
+    segment_duration = MAX_FILE_SIZE / avg_bitrate  # seconds
+    segment_duration = math.floor(segment_duration)
 
-    cmd = [
-        "ffmpeg", "-i", input_path, "-c", "copy", "-map", "0",
-        "-f", "segment", "-segment_time", str(seconds),
-        "-reset_timestamps", "1", output_pattern
-    ]
+    total_parts = math.ceil(duration / segment_duration)
+    basename = os.path.splitext(file)[0]
 
-    try:
-        subprocess.run(cmd, check=True)
-        segments = sorted(glob.glob(f"{user_id}_part_*.mp4"))
+    os.makedirs("segments", exist_ok=True)
 
-        for part in segments:
-            await message.reply_video(part)
-            os.remove(part)
+    for i in range(total_parts):
+        start = i * segment_duration
+        end = min((i + 1) * segment_duration, duration)
+        segment_file = f"segments/{basename}_part{i+1}.mp4"
 
-    except Exception as e:
-        await message.reply(f"❌ បរាជ័យក្នុងការកាត់៖ {e}")
+        clip.subclip(start, end).write_videofile(
+            segment_file,
+            codec="libx264",
+            audio_codec="aac",
+            temp_audiofile='temp-audio.m4a',
+            remove_temp=True,
+            threads=4,
+            logger=None
+        )
 
-    finally:
-        os.remove(input_path)
-        user_videos.pop(user_id, None)
+        await message.reply_video(video=segment_file, caption=f"📦 Part {i+1}")
+        os.remove(segment_file)
 
-if __name__ == "__main__":
-    print("✅ Split Video Bot is running...")
-    app.run()
+    clip.close()
+    os.remove(file)
+    shutil.rmtree("segments", ignore_errors=True)
+    await message.reply_text("✅ បញ្ជូនរួចរាល់!")
+
+@app.on_message(filters.command("start"))
+async def start(client, message):
+    await message.reply_text("👋 សួស្តី! ផ្ញើវីដេអូនៅទីនេះ ខ្ញុំនឹងបំបែកវាបើវាធំជាង 2GB។")
+
+app.run()
