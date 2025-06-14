@@ -12,8 +12,8 @@ from reportlab.lib.units import inch
 
 # --- ការកំណត់ពុម្ពអក្សរ (ចំណុចកែសម្រួលសំខាន់ទី១) ---
 # យើងប្តូរไปប្រើពុម្ពអក្សរ Khmer OS Siemreap ដែលជាស្តង់ដារ และអាចដំណើរការបានល្អ
-FONT_FILENAME = "KhmerOS_Siemreap.ttf" 
-FONT_NAME = "KhmerOSSiemreap" # ឈ្មោះសម្រាប់ប្រើក្នុងកូដ
+FONT_FILENAME = "NotoSansKhmer-Regular.ttf" 
+FONT_NAME = "NotoSansKhmer" # ឈ្មោះសម្រាប់ប្រើក្នុងកូដ
 
 # ស្វែងរកទីតាំងពិតប្រាកដរបស់ไฟล์កូដ (ចំណុចកែសម្រួលសំខាន់ទី២)
 # វិធីនេះធានាថា Bot រកไฟล์ font ឃើញเสมอ ទោះបីជាអ្នករត់វាមកពីទីណាក៏ដោយ
