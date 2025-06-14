@@ -1,42 +1,41 @@
+import os
 from fpdf import FPDF
 from telegram import Update
 from telegram.ext import CommandHandler, ContextTypes
-import time
-import os
+
+# Path to the Khmer font
+FONT_PATH = os.path.join(os.path.dirname(__file__), "KhmerOS.ttf")
 
 def get_handler():
-    async def text_to_pdf(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        user_id = update.message.from_user.id
-        text = " ".join(context.args)
+    return CommandHandler("texttopdf", text_to_pdf)
 
-        if not text:
-            await update.message.reply_text("⚠️ សូមបញ្ចូលអត្ថបទបន្ទាប់ពី /texttopdf")
-            return
+async def text_to_pdf(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.message.from_user.id
+    text = " ".join(context.args)
 
-        # ✅ Create PDF instance
+    if not text:
+        await update.message.reply_text("⚠️ សូមបញ្ចូលអត្ថបទបន្ថែមក្រោយ /texttopdf")
+        return
+
+    if not os.path.exists(FONT_PATH):
+        await update.message.reply_text("❌ មិនមាន KhmerOS.ttf សម្រាប់អក្សរខ្មែរ")
+        return
+
+    try:
         pdf = FPDF()
         pdf.add_page()
 
-        # ✅ Add Khmer font with Unicode support
-        font_path = "KhmerOS.ttf"  # Make sure this file is present in the same directory
-        if not os.path.exists(font_path):
-            await update.message.reply_text("❌ មិនមាន KhmerOS.ttf សម្រាប់អក្សរខ្មែរ")
-            return
+        # Register and use Khmer font
+        pdf.add_font("KhmerOS", '', FONT_PATH, uni=True)
+        pdf.set_font("KhmerOS", size=16)
 
-        pdf.add_font("KhmerOS", "", font_path, uni=True)
-        pdf.set_font("KhmerOS", "", 19)
+        pdf.multi_cell(0, 10, text)
 
-        # ✅ Write Khmer text
-        pdf.multi_cell(0, 10, txt=text)
+        output_path = f"{user_id}_output.pdf"
+        pdf.output(output_path)
 
-        # ✅ Save file
-        filename = f"{user_id}_{int(time.time())}_output.pdf"
-        pdf.output(filename)
+        await update.message.reply_document(document=open(output_path, "rb"))
+        os.remove(output_path)
 
-        # ✅ Send file to user
-        await update.message.reply_document(document=open(filename, 'rb'))
-
-        # ✅ Clean up
-        os.remove(filename)
-
-    return CommandHandler("texttopdf", text_to_pdf)
+    except Exception as e:
+        await update.message.reply_text(f"❌ បញ្ហា: {e}")
