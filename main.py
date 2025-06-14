@@ -42,3 +42,44 @@ async def split_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     output_pattern = f"{user_id}_segment_%03d.mp4"
     command = [
         "ffmpeg", "-i", input_path, "-c", "copy", "-map", "0",
+        "-segment_time", segment_time, "-f", "segment",
+        "-reset_timestamps", "1", output_pattern
+    ]
+
+    await update.message.reply_text("🔪 កំពុងកាត់វីដេអូ...")
+
+    try:
+        subprocess.run(command, check=True)
+        segments = glob.glob(f"{user_id}_segment_*.mp4")
+        for seg in segments:
+            await update.message.reply_video(video=open(seg, 'rb'))
+        for seg in segments:
+            os.remove(seg)
+    except Exception as e:
+        await update.message.reply_text(f"❌ មានបញ្ហា: {e}")
+    finally:
+        if os.path.exists(input_path):
+            os.remove(input_path)
+        user_video_files.pop(user_id, None)
+
+# Handle /start command to explain features
+async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "🤖 សួស្តី! ខ្ញុំអាចជួយអ្នក:\n\n"
+        "🎞️ កាត់វីដេអូ: ផ្ញើវីដេអូហើយប្រើ /split <នាទី>\n"
+        "📄 បម្លែងអត្ថបទទៅ PDF: /texttopdf [អត្ថបទ]\n"
+        "\nសូមចាប់ផ្តើមដោយផ្ញើវីដេអូឬវាយបញ្ជា។"
+    )
+
+# Start the bot
+if __name__ == '__main__':
+    app = ApplicationBuilder().token(BOT_TOKEN).build()
+
+    app.add_handler(CommandHandler("start", start_command))
+    app.add_handler(MessageHandler(filters.ChatType.GROUPS & filters.VIDEO, handle_video))
+    app.add_handler(MessageHandler(filters.ChatType.PRIVATE & filters.VIDEO, handle_video))
+    app.add_handler(CommandHandler("split", split_command))
+    app.add_handler(get_handler())  # Add /texttopdf handler from text_to_pdf.py
+
+    print("🤖 Bot is running securely...")
+    app.run_polling()
