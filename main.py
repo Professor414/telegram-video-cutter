@@ -2,7 +2,13 @@ import os
 import subprocess
 import glob
 from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
+from telegram.ext import (
+    ApplicationBuilder,
+    CommandHandler,
+    MessageHandler,
+    ContextTypes,
+    filters
+)
 from text_to_pdf import get_handler  # PDF command handler
 
 # Get the bot token from environment variables
@@ -12,6 +18,17 @@ if not BOT_TOKEN:
 
 # Dictionary to temporarily store uploaded video paths by user
 user_video_files = {}
+
+# /start command
+async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    message = (
+        "🤖 សូមស្វាគមន៍មកកាន់ Bot!\n\n"
+        "📌 មុខងារដែលអាចប្រើបាន:\n"
+        "🔹 /split <នាទី> – កាត់វីដេអូចេញជាចំណែកៗ (ត្រូវផ្ញើវីដេអូមុន)\n"
+        "🔹 /texttopdf <អត្ថបទ> – បំលែងអត្ថបទទៅជា PDF (គាំទ្រភាសាខ្មែរ)\n"
+        "\nℹ️ បញ្ជាក់៖ សូមបញ្ចូលពាក្យបញ្ជាដោយត្រឹមត្រូវ។"
+    )
+    await update.message.reply_text(message)
 
 # Handle video file upload
 async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -40,36 +57,4 @@ async def split_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     output_pattern = f"{user_id}_segment_%03d.mp4"
     command = [
         "ffmpeg", "-i", input_path, "-c", "copy", "-map", "0",
-        "-segment_time", segment_time, "-f", "segment",
-        "-reset_timestamps", "1", output_pattern
-    ]
-
-    await update.message.reply_text("🔪 កំពុងកាត់វីដេអូ...")
-
-    try:
-        subprocess.run(command, check=True)
-        segments = glob.glob(f"{user_id}_segment_*.mp4")
-        for seg in segments:
-            await update.message.reply_video(video=open(seg, 'rb'))
-        for seg in segments:
-            os.remove(seg)
-    except Exception as e:
-        await update.message.reply_text(f"❌ មានបញ្ហា: {e}")
-    finally:
-        if os.path.exists(input_path):
-            os.remove(input_path)
-        user_video_files.pop(user_id, None)
-
-# Initialize bot
-if __name__ == '__main__':
-    app = ApplicationBuilder().token(BOT_TOKEN).build()
-
-    app.add_handler(MessageHandler(filters.ChatType.GROUPS & filters.VIDEO, handle_video))
-    app.add_handler(MessageHandler(filters.ChatType.PRIVATE & filters.VIDEO, handle_video))
-    app.add_handler(CommandHandler("split", split_command))
-
-    # Add other command features
-    app.add_handler(get_handler())  # Add /texttopdf handler from text_to_pdf.py
-
-    print("🤖 Bot is running securely...")
-    app.run_polling()
+        "-segmen
